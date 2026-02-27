@@ -9,5 +9,15 @@ func main() {
 			"message": "pong",
 		})
 	})
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "hello world",
+		})
+	})
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "ok",
+		})
+	})
 	router.Run() // 默认监听 0.0.0.0:8080
 }
