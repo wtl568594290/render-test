@@ -341,24 +341,33 @@
         let lbNames = [];
         let lbIndex = 0;
         let lbScale = 1;
+        let lbBaseScale = 1; // 最初显示尺寸对应的缩放(小图会放大到贴合视口)
         let lbOffsetX = 0;
         let lbOffsetY = 0;
-        const MIN_SCALE = 1;
-        const MAX_SCALE = 8;
+        const MAX_SCALE = 8; // 相对最初尺寸的最大放大倍数
+
+        function computeBaseScale() {
+            if (!lbImg.naturalWidth) return 1;
+            const fit = Math.min(
+                window.innerWidth * 0.9 / lbImg.naturalWidth,
+                window.innerHeight * 0.82 / lbImg.naturalHeight
+            );
+            return Math.max(1, fit);
+        }
 
         function applyTransform() {
             // 缩回最初尺寸时,清除偏移回到页面中心
-            if (lbScale <= 1) {
-                lbScale = 1;
+            if (lbScale <= lbBaseScale) {
+                lbScale = lbBaseScale;
                 lbOffsetX = 0;
                 lbOffsetY = 0;
             }
             lbImg.style.transform = `translate(${lbOffsetX}px, ${lbOffsetY}px) scale(${lbScale})`;
-            lbImg.classList.toggle('zoomable', lbScale > 1);
+            lbImg.classList.toggle('zoomable', lbScale > lbBaseScale);
         }
 
         function clampScale(v) {
-            return Math.max(MIN_SCALE, Math.min(MAX_SCALE, v));
+            return Math.max(lbBaseScale, Math.min(lbBaseScale * MAX_SCALE, v));
         }
 
         function lbShow() {
@@ -366,11 +375,28 @@
             lbImg.src = '/img?name=' + encodeURIComponent(name);
             lbImg.alt = name;
             lbCounter.textContent = (lbIndex + 1) + ' / ' + lbNames.length;
+            // 加载完成前先按基准复位,图片 onload 后再按实际尺寸调整
+            lbBaseScale = 1;
             lbScale = 1;
             lbOffsetX = 0;
             lbOffsetY = 0;
             applyTransform();
         }
+
+        lbImg.addEventListener('load', () => {
+            lbBaseScale = computeBaseScale();
+            lbScale = lbBaseScale;
+            lbOffsetX = 0;
+            lbOffsetY = 0;
+            applyTransform();
+        });
+
+        window.addEventListener('resize', () => {
+            if (!lightbox.classList.contains('open')) return;
+            lbBaseScale = computeBaseScale();
+            lbScale = clampScale(lbScale);
+            applyTransform();
+        });
 
         function lbOpen(name) {
             // 收集当前可见(搜索/折叠过滤后)的图片名,顺序与渲染一致
@@ -402,7 +428,7 @@
         lbClose.addEventListener('click', lbCloseFn);
         lbZoomIn.addEventListener('click', () => { lbScale = clampScale(lbScale * 1.2); applyTransform(); });
         lbZoomOut.addEventListener('click', () => { lbScale = clampScale(lbScale / 1.2); applyTransform(); });
-        lbZoomReset.addEventListener('click', () => { lbScale = 1; lbOffsetX = 0; lbOffsetY = 0; applyTransform(); });
+        lbZoomReset.addEventListener('click', () => { lbScale = lbBaseScale; lbOffsetX = 0; lbOffsetY = 0; applyTransform(); });
 
         // 点击遮罩空白区关闭
         lightbox.addEventListener('click', e => {
@@ -413,7 +439,7 @@
             if (e.key === 'Escape') lbCloseFn();
             else if (e.key === '+' || e.key === '=') { lbScale = clampScale(lbScale * 1.2); applyTransform(); }
             else if (e.key === '-' || e.key === '_') { lbScale = clampScale(lbScale / 1.2); applyTransform(); }
-            else if (e.key === '0') { lbScale = 1; lbOffsetX = 0; lbOffsetY = 0; applyTransform(); }
+            else if (e.key === '0') { lbScale = lbBaseScale; lbOffsetX = 0; lbOffsetY = 0; applyTransform(); }
         });
 
         // 翻页(仅在最初尺寸下生效)
@@ -423,7 +449,7 @@
         // PC:滚轮翻页
         let lastWheel = 0;
         lightbox.addEventListener('wheel', e => {
-            if (lbScale > 1) return;          // 放大时不翻页
+            if (lbScale > lbBaseScale) return; // 放大时不翻页
             if (Math.abs(e.deltaY) < 15) return;
             e.preventDefault();
             const now = Date.now();
@@ -435,8 +461,8 @@
         // 双击:最初尺寸下放大,放大状态下重置
         lbImg.addEventListener('dblclick', e => {
             e.preventDefault();
-            if (lbScale > 1) {
-                lbScale = 1;
+            if (lbScale > lbBaseScale) {
+                lbScale = lbBaseScale;
                 lbOffsetX = 0;
                 lbOffsetY = 0;
             } else {
@@ -451,7 +477,7 @@
         let dragStartOffsetX = 0, dragStartOffsetY = 0;
 
         lbImg.addEventListener('mousedown', e => {
-            if (e.button !== 0 || lbScale <= 1) return;
+            if (e.button !== 0 || lbScale <= lbBaseScale) return;
             mouseDragging = true;
             dragStartX = e.clientX;
             dragStartY = e.clientY;
@@ -494,15 +520,15 @@
                 pinchStartScale = lbScale;
                 lbImg.classList.add('pinch');
                 e.preventDefault();
-            } else if (e.touches.length === 1 && lbScale > 1 && (e.target === lbImg || lbImg.contains(e.target))) {
-                // 已放大时单指拖动图片
+            } else if (e.touches.length === 1 && lbScale > lbBaseScale && (e.target === lbImg || lbImg.contains(e.target))) {
+                // 已放大(超出最初尺寸)时单指拖动图片
                 touchDragging = true;
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
                 touchStartOffsetX = lbOffsetX;
                 touchStartOffsetY = lbOffsetY;
                 lbImg.classList.add('dragging');
-            } else if (e.touches.length === 1 && lbScale <= 1 && !e.target.closest('.lb-btn')) {
+            } else if (e.touches.length === 1 && lbScale <= lbBaseScale && !e.target.closest('.lb-btn')) {
                 // 最初尺寸下记录滑动起点(避开按钮,以免影响点击)
                 swipeActive = true;
                 swipeMoved = false;
