@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doc List</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f6f8;
+            color: #333;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #fff;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e5e5;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .search-wrap {
+            max-width: 960px;
+            margin: 0 auto;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .search-wrap h1 {
+            font-size: 18px;
+            margin: 0;
+            color: #1a1a1a;
+            white-space: nowrap;
+        }
+
+        #search {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        #search:focus {
+            border-color: #4a90e2;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 24px auto;
+            padding: 0 24px;
+        }
+
+        .status {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        .file-card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .file-card>h2 {
+            margin: 0;
+            padding: 12px 16px;
+            font-size: 15px;
+            font-weight: 600;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+
+        .file-card>h2:hover {
+            background: #f0f0f0;
+        }
+
+        .file-card>h2 .count {
+            color: #888;
+            font-weight: 400;
+            font-size: 13px;
+            margin-left: 8px;
+        }
+
+        .img-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .img-list li {
+            padding: 8px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .img-list li:last-child {
+            border-bottom: none;
+        }
+
+        .img-name {
+            word-break: break-all;
+        }
+
+        .img-number {
+            color: #fff;
+            background: #4a90e2;
+            border-radius: 10px;
+            padding: 2px 10px;
+            font-size: 12px;
+            margin-left: 12px;
+            flex-shrink: 0;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .img-number:hover {
+            background: #357abd;
+        }
+
+        .empty-file {
+            padding: 12px 16px;
+            color: #999;
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .caret {
+            display: inline-block;
+            width: 0;
+            height: 0;
+            border-left: 6px solid #888;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            transform: rotate(90deg);
+            transition: transform 0.15s;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .file-card.collapsed .caret {
+            transform: rotate(0deg);
+        }
+
+        .file-card.collapsed .img-list,
+        .file-card.collapsed .empty-file {
+            display: none;
+        }
+
+        /* lightbox 预览 */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lightbox.open {
+            display: flex;
+        }
+
+        .lightbox img {
+            max-width: 90vw;
+            max-height: 82vh;
+            object-fit: contain;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .lb-btn {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s;
+            user-select: none;
+        }
+
+        .lb-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .lb-toolbar {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 2;
+        }
+
+        .lightbox img {
+            transition: transform 0.15s;
+            transform-origin: center center;
+            touch-action: none;
+            cursor: default;
+        }
+
+        .lightbox img.zoomable {
+            cursor: grab;
+        }
+
+        .lightbox img.pinch,
+        .lightbox img.dragging {
+            transition: none;
+        }
+
+        .lightbox img.zoomable.dragging {
+            cursor: grabbing;
+        }
+
+        .lb-counter {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 14px;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="search-wrap">
+            <input id="search" type="text" placeholder="搜索" autocomplete="off" />
+        </div>
+    </div>
+    <div class="container">
+        <div id="status" class="status">加载中...</div>
+        <div id="content"></div>
+    </div>
+
+    <div class="lightbox" id="lightbox">
+        <div class="lb-toolbar">
+            <button class="lb-btn" id="lbZoomIn" type="button" title="放大 (+)">+</button>
+            <button class="lb-btn" id="lbZoomOut" type="button" title="缩小 (-)">−</button>
+            <button class="lb-btn" id="lbZoomReset" type="button" title="重置 (0)">⟳</button>
+            <button class="lb-btn" id="lbClose" type="button" title="关闭 (Esc)">✕</button>
+        </div>
+        <img id="lbImg" src="" alt="" />
+        <div class="lb-counter" id="lbCounter"></div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const contentEl = document.getElementById('content');
+        const searchEl = document.getElementById('search');
+        let docData = [];
+
+        function render() {
+            const keyword = searchEl.value.trim().toLowerCase();
+            if (!docData.length) {
+                contentEl.innerHTML = '';
+                return;
+            }
+
+            const html = docData.map(file => {
+                const matchedImgs = keyword
+                    ? file.imgs.filter(img => img.name.toLowerCase().includes(keyword))
+                    : file.imgs;
+                if (keyword && matchedImgs.length === 0) return '';
+
+                const items = matchedImgs.length
+                    ? `<ul class="img-list">${matchedImgs.map(img => `
+                        <li>
+                            <span class="img-name">${escapeHtml(img.name)}</span>
+                            <a class="img-number" data-name="${escapeHtml(img.name)}" href="/img?name=${encodeURIComponent(img.name)}" target="_blank" rel="noopener">${img.number}</a>
+                        </li>`).join('')}</ul>`
+                    : `<div class="empty-file">无匹配项</div>`;
+
+                return `
+                <div class="file-card">
+                    <h2><span class="caret"></span>${escapeHtml(file.name)}<span class="count">${matchedImgs.length} / ${file.imgs.length}</span></h2>
+                    ${items}
+                </div>`;
+            }).join('');
+
+            contentEl.innerHTML = html || '<div class="status">无匹配结果</div>';
+        }
+
+        contentEl.addEventListener('click', e => {
+            const head = e.target.closest('.file-card > h2');
+            if (!head) return;
+            const card = head.closest('.file-card');
+            if (!card) return;
+            card.classList.toggle('collapsed');
+        });
+
+        // lightbox 预览
+        const lightbox = document.getElementById('lightbox');
+        const lbImg = document.getElementById('lbImg');
+        const lbClose = document.getElementById('lbClose');
+        const lbZoomIn = document.getElementById('lbZoomIn');
+        const lbZoomOut = document.getElementById('lbZoomOut');
+        const lbZoomReset = document.getElementById('lbZoomReset');
+        const lbCounter = document.getElementById('lbCounter');
+        let lbNames = [];
+        let lbIndex = 0;
+        let lbScale = 1;
+        let lbOffsetX = 0;
+        let lbOffsetY = 0;
+        const MIN_SCALE = 1;
+        const MAX_SCALE = 8;
+
+        function applyTransform() {
+            // 缩回最初尺寸时,清除偏移回到页面中心
+            if (lbScale <= 1) {
+                lbScale = 1;
+                lbOffsetX = 0;
+                lbOffsetY = 0;
+            }
+            lbImg.style.transform = `translate(${lbOffsetX}px, ${lbOffsetY}px) scale(${lbScale})`;
+            lbImg.classList.toggle('zoomable', lbScale > 1);
+        }
+
+        function clampScale(v) {
+            return Math.max(MIN_SCALE, Math.min(MAX_SCALE, v));
+        }
+
+        function lbShow() {
+            const name = lbNames[lbIndex];
+            lbImg.src = '/img?name=' + encodeURIComponent(name);
+            lbImg.alt = name;
+            lbCounter.textContent = (lbIndex + 1) + ' / ' + lbNames.length;
+            lbScale = 1;
+            lbOffsetX = 0;
+            lbOffsetY = 0;
+            applyTransform();
+        }
+
+        function lbOpen(name) {
+            // 收集当前可见(搜索/折叠过滤后)的图片名,顺序与渲染一致
+            lbNames = Array.from(contentEl.querySelectorAll('.img-number'))
+                .map(a => a.dataset.name)
+                .filter(Boolean);
+            lbIndex = lbNames.indexOf(name);
+            if (lbIndex < 0) lbIndex = 0;
+            if (lbNames.length === 0) return;
+            lbShow();
+            lightbox.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function lbCloseFn() {
+            lightbox.classList.remove('open');
+            lbImg.src = '';
+            lbImg.style.transform = '';
+            document.body.style.overflow = '';
+        }
+
+        contentEl.addEventListener('click', e => {
+            const a = e.target.closest('.img-number');
+            if (!a) return;
+            e.preventDefault();
+            lbOpen(a.dataset.name);
+        });
+
+        lbClose.addEventListener('click', lbCloseFn);
+        lbZoomIn.addEventListener('click', () => { lbScale = clampScale(lbScale * 1.2); applyTransform(); });
+        lbZoomOut.addEventListener('click', () => { lbScale = clampScale(lbScale / 1.2); applyTransform(); });
+        lbZoomReset.addEventListener('click', () => { lbScale = 1; lbOffsetX = 0; lbOffsetY = 0; applyTransform(); });
+
+        // 点击遮罩空白区关闭
+        lightbox.addEventListener('click', e => {
+            if (e.target === lightbox) lbCloseFn();
+        });
+        document.addEventListener('keydown', e => {
+            if (!lightbox.classList.contains('open')) return;
+            if (e.key === 'Escape') lbCloseFn();
+            else if (e.key === '+' || e.key === '=') { lbScale = clampScale(lbScale * 1.2); applyTransform(); }
+            else if (e.key === '-' || e.key === '_') { lbScale = clampScale(lbScale / 1.2); applyTransform(); }
+            else if (e.key === '0') { lbScale = 1; lbOffsetX = 0; lbOffsetY = 0; applyTransform(); }
+        });
+
+        // 翻页(仅在最初尺寸下生效)
+        function lbNext() { if (lbIndex < lbNames.length - 1) { lbIndex++; lbShow(); } }
+        function lbPrev() { if (lbIndex > 0) { lbIndex--; lbShow(); } }
+
+        // PC:滚轮翻页
+        let lastWheel = 0;
+        lightbox.addEventListener('wheel', e => {
+            if (lbScale > 1) return;          // 放大时不翻页
+            if (Math.abs(e.deltaY) < 15) return;
+            e.preventDefault();
+            const now = Date.now();
+            if (now - lastWheel < 300) return; // 节流,避免一次滚动连翻多张
+            lastWheel = now;
+            if (e.deltaY > 0) lbNext(); else lbPrev();
+        }, { passive: false });
+
+        // 双击:最初尺寸下放大,放大状态下重置
+        lbImg.addEventListener('dblclick', e => {
+            e.preventDefault();
+            if (lbScale > 1) {
+                lbScale = 1;
+                lbOffsetX = 0;
+                lbOffsetY = 0;
+            } else {
+                lbScale = clampScale(lbScale * 1.2);
+            }
+            applyTransform();
+        });
+
+        // 拖动(桌面端鼠标)
+        let mouseDragging = false;
+        let dragStartX = 0, dragStartY = 0;
+        let dragStartOffsetX = 0, dragStartOffsetY = 0;
+
+        lbImg.addEventListener('mousedown', e => {
+            if (e.button !== 0 || lbScale <= 1) return;
+            mouseDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragStartOffsetX = lbOffsetX;
+            dragStartOffsetY = lbOffsetY;
+            lbImg.classList.add('dragging');
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', e => {
+            if (!mouseDragging) return;
+            lbOffsetX = dragStartOffsetX + (e.clientX - dragStartX);
+            lbOffsetY = dragStartOffsetY + (e.clientY - dragStartY);
+            applyTransform();
+        });
+        document.addEventListener('mouseup', () => {
+            if (!mouseDragging) return;
+            mouseDragging = false;
+            lbImg.classList.remove('dragging');
+        });
+
+        // 触摸:单指拖动 + 两指缩放 + 最初尺寸下左右滑动翻页
+        let pinchStartDist = 0;
+        let pinchStartScale = 1;
+        let touchDragging = false;
+        let touchStartX = 0, touchStartY = 0;
+        let touchStartOffsetX = 0, touchStartOffsetY = 0;
+        let swipeActive = false;
+        let swipeMoved = false;
+        let swipeStartX = 0, swipeStartY = 0;
+        const getTouchDist = (t1, t2) =>
+            Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+        lightbox.addEventListener('touchstart', e => {
+            if (e.touches.length === 2) {
+                // 切到两指缩放,暂停单指拖动/滑动
+                touchDragging = false;
+                swipeActive = false;
+                lbImg.classList.remove('dragging');
+                pinchStartDist = getTouchDist(e.touches[0], e.touches[1]);
+                pinchStartScale = lbScale;
+                lbImg.classList.add('pinch');
+                e.preventDefault();
+            } else if (e.touches.length === 1 && lbScale > 1 && (e.target === lbImg || lbImg.contains(e.target))) {
+                // 已放大时单指拖动图片
+                touchDragging = true;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchStartOffsetX = lbOffsetX;
+                touchStartOffsetY = lbOffsetY;
+                lbImg.classList.add('dragging');
+            } else if (e.touches.length === 1 && lbScale <= 1 && !e.target.closest('.lb-btn')) {
+                // 最初尺寸下记录滑动起点(避开按钮,以免影响点击)
+                swipeActive = true;
+                swipeMoved = false;
+                swipeStartX = e.touches[0].clientX;
+                swipeStartY = e.touches[0].clientY;
+            }
+        }, { passive: false });
+
+        lightbox.addEventListener('touchmove', e => {
+            if (e.touches.length === 2 && pinchStartDist > 0) {
+                const ratio = getTouchDist(e.touches[0], e.touches[1]) / pinchStartDist;
+                lbScale = clampScale(pinchStartScale * ratio);
+                applyTransform();
+                e.preventDefault();
+            } else if (e.touches.length === 1 && touchDragging) {
+                lbOffsetX = touchStartOffsetX + (e.touches[0].clientX - touchStartX);
+                lbOffsetY = touchStartOffsetY + (e.touches[0].clientY - touchStartY);
+                applyTransform();
+                e.preventDefault();
+            } else if (e.touches.length === 1 && swipeActive) {
+                // 水平方向开始移动时阻止默认,避免误触发 click(关闭)
+                const dx = e.touches[0].clientX - swipeStartX;
+                const dy = e.touches[0].clientY - swipeStartY;
+                if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+                    swipeMoved = true;
+                    e.preventDefault();
+                }
+            }
+        }, { passive: false });
+
+        const endTouch = e => {
+            // 最初尺寸下:水平滑动翻页(touchcancel 不触发,避免异常误翻)
+            if (e.type === 'touchend' && swipeActive && swipeMoved && e.changedTouches.length > 0) {
+                const t = e.changedTouches[0];
+                const dx = t.clientX - swipeStartX;
+                const dy = t.clientY - swipeStartY;
+                if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                    if (dx < 0) lbNext(); else lbPrev();
+                }
+            }
+            swipeActive = false;
+            swipeMoved = false;
+            if (e.touches.length < 2) {
+                pinchStartDist = 0;
+                lbImg.classList.remove('pinch');
+            }
+            if (e.touches.length === 0) {
+                touchDragging = false;
+                lbImg.classList.remove('dragging');
+            }
+        };
+        lightbox.addEventListener('touchend', endTouch);
+        lightbox.addEventListener('touchcancel', endTouch);
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;',
+                '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+
+        searchEl.addEventListener('input', render);
+
+        (async () => {
+            try {
+                const res = await fetch('/doc');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                if (data.message !== 'success' || !Array.isArray(data.doc)) {
+                    throw new Error(data.message || '响应格式异常');
+                }
+                docData = data.doc;
+                statusEl.classList.add('hidden');
+                render();
+            } catch (err) {
+                statusEl.textContent = '加载失败: ' + err.message;
+                statusEl.style.color = '#c00';
+            }
+        })();
+    </script>
+</body>
+
+</html>
