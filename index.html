@@ -291,6 +291,23 @@
         const searchEl = document.getElementById('search');
         let docData = [];
 
+        // 汉字拼音首字母:利用浏览器 Intl 的中文拼音排序判定所属首字母组
+        const PY_ANCHORS = ['啊', '芭', '擦', '搭', '蛾', '发', '噶', '哈', '击', '喀', '垃', '妈', '拿', '哦', '啪', '期', '然', '撒', '塌', '挖', '昔', '压', '匝'];
+        const PY_LETTERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'w', 'x', 'y', 'z'];
+        function charInitial(ch) {
+            const code = ch.codePointAt(0);
+            if (code < 0x4E00 || code > 0x9FFF) return ch.toLowerCase();
+            for (let i = PY_ANCHORS.length - 1; i >= 0; i--) {
+                if (ch.localeCompare(PY_ANCHORS[i], 'zh-CN') >= 0) return PY_LETTERS[i];
+            }
+            return '#';
+        }
+        function getInitials(str) {
+            let s = '';
+            for (const ch of str) s += charInitial(ch);
+            return s;
+        }
+
         function render() {
             const keyword = searchEl.value.trim().toLowerCase();
             if (!docData.length) {
@@ -300,7 +317,11 @@
 
             const html = docData.map(file => {
                 const matchedImgs = keyword
-                    ? file.imgs.filter(img => img.name.toLowerCase().includes(keyword))
+                    ? file.imgs.filter(img => {
+                        const name = img.name.toLowerCase();
+                        if (name.includes(keyword)) return true;
+                        return getInitials(img.name).includes(keyword);
+                    })
                     : file.imgs;
                 if (keyword && matchedImgs.length === 0) return '';
 
@@ -308,7 +329,7 @@
                     ? `<ul class="img-list">${matchedImgs.map(img => `
                         <li>
                             <span class="img-name">${escapeHtml(img.name)}</span>
-                            <a class="img-number" data-name="${escapeHtml(img.name)}" href="/img?name=${encodeURIComponent(img.name)}" target="_blank" rel="noopener">${img.number}</a>
+                            <a class="img-number" data-name="${escapeHtml(img.name)}" data-hash="${escapeHtml(img.hash || '')}" href="/img?name=${encodeURIComponent(img.name)}&hash=${encodeURIComponent(img.hash || '')}" target="_blank" rel="noopener">${img.number}</a>
                         </li>`).join('')}</ul>`
                     : `<div class="empty-file">无匹配项</div>`;
 
@@ -371,8 +392,10 @@
         }
 
         function lbShow() {
-            const name = lbNames[lbIndex];
-            lbImg.src = '/img?name=' + encodeURIComponent(name);
+            const item = lbNames[lbIndex];
+            const name = item.name;
+            const hash = item.hash || '';
+            lbImg.src = '/img?name=' + encodeURIComponent(name) + '&hash=' + encodeURIComponent(hash);
             lbImg.alt = name;
             lbCounter.textContent = (lbIndex + 1) + ' / ' + lbNames.length;
             // 加载完成前先按基准复位,图片 onload 后再按实际尺寸调整
@@ -401,9 +424,9 @@
         function lbOpen(name) {
             // 收集当前可见(搜索/折叠过滤后)的图片名,顺序与渲染一致
             lbNames = Array.from(contentEl.querySelectorAll('.img-number'))
-                .map(a => a.dataset.name)
-                .filter(Boolean);
-            lbIndex = lbNames.indexOf(name);
+                .map(a => ({ name: a.dataset.name, hash: a.dataset.hash }))
+                .filter(item => item.name);
+            lbIndex = lbNames.findIndex(item => item.name === name);
             if (lbIndex < 0) lbIndex = 0;
             if (lbNames.length === 0) return;
             lbShow();
@@ -597,10 +620,10 @@
                 const res = await fetch('/doc');
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
-                if (data.message !== 'success' || !Array.isArray(data.doc)) {
+                if (data.message !== 'success' || !Array.isArray(data.data)) {
                     throw new Error(data.message || '响应格式异常');
                 }
-                docData = data.doc;
+                docData = data.data;
                 statusEl.classList.add('hidden');
                 render();
             } catch (err) {

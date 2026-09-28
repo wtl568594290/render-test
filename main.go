@@ -1,17 +1,11 @@
 package main
 
 import (
-	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-)
-
-const (
-	ImgDir = "images"
 )
 
 var ImgUuidMap = make(map[string]string)
@@ -41,16 +35,10 @@ func main() {
 			return
 		}
 		DocList = req
-
-		// 清空 ImgUuidMap,图片目录
-		ImgUuidMap = make(map[string]string)
-		// 清空图片目录
-		if err := os.RemoveAll(ImgDir); err != nil {
-			log.Printf("remove img dir %s failed: %v", ImgDir, err)
-		}
-
+		addList := StorageMap.sync(req)
 		c.JSON(200, gin.H{
 			"message": "success",
+			"data":    addList,
 		})
 
 	})
@@ -63,17 +51,27 @@ func main() {
 		}
 		c.JSON(200, gin.H{
 			"message": "success",
-			"doc":     DocList,
+			"data":    DocList,
 		})
 	})
+
 	router.POST("/img", func(c *gin.Context) {
 		name := c.PostForm("name")
-		if name == "" {
+		hash := c.PostForm("hash")
+		ext := c.PostForm("ext")
+		if name == "" || hash == "" || ext == "" {
 			c.JSON(400, gin.H{
-				"message": "name is empty",
+				"message": "some params are empty",
 			})
 			return
 		}
+		if StorageMap.has(hash + name) {
+			c.JSON(200, gin.H{
+				"message": "img already exists",
+			})
+			return
+		}
+
 		file, err := c.FormFile("file")
 		if err != nil {
 			c.JSON(400, gin.H{
@@ -81,9 +79,6 @@ func main() {
 			})
 			return
 		}
-
-		ext := filepath.Ext(file.Filename)
-
 		filename := uuid.NewString() + ext
 		path := filepath.Join(ImgDir, filename)
 
@@ -93,29 +88,30 @@ func main() {
 			})
 			return
 		}
-
-		ImgUuidMap[name] = filename
+		StorageMap.add(hash+name, path)
 		c.JSON(http.StatusOK, gin.H{
 			"message": "success",
-			"img":     filename,
+			"data":    filename,
 		})
 	})
+
 	router.GET("/img", func(c *gin.Context) {
 		name := c.Query("name")
-		if name == "" {
+		hash := c.Query("hash")
+		if name == "" || hash == "" {
 			c.JSON(400, gin.H{
-				"message": "name is empty",
+				"message": "name or hash is empty",
 			})
 			return
 		}
-		img, ok := ImgUuidMap[name]
-		if !ok {
+		path, err := StorageMap.get(hash + name)
+		if err != nil {
 			c.JSON(400, gin.H{
-				"message": "img not found",
+				"message": err.Error(),
 			})
 			return
 		}
-		c.File(filepath.Join(ImgDir, img))
+		c.File(path)
 	})
 	router.Run() // 默认监听 0.0.0.0:8080
 }
