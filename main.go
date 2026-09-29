@@ -2,10 +2,10 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 var ImgUuidMap = make(map[string]string)
@@ -72,21 +72,25 @@ func main() {
 			return
 		}
 
-		file, err := c.FormFile("file")
-		if err != nil {
-			c.JSON(400, gin.H{
-				"message": err.Error(),
-			})
-			return
-		}
-		filename := uuid.NewString() + ext
+		filename := hash + ext
 		path := filepath.Join(ImgDir, filename)
+		// 如果文件存在，跳过c.SaveUploadedFile
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			// 文件不存在，继续执行
+			file, err := c.FormFile("file")
+			if err != nil {
+				c.JSON(400, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
 
-		if err := c.SaveUploadedFile(file, path); err != nil {
-			c.JSON(400, gin.H{
-				"message": err.Error(),
-			})
-			return
+			if err := c.SaveUploadedFile(file, path); err != nil {
+				c.JSON(400, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
 		}
 		StorageMap.add(hash+name, path)
 		c.JSON(http.StatusOK, gin.H{
